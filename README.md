@@ -62,9 +62,10 @@ sudo ./noto_fontconfig_installer.sh --install          # install system-wide
 ./noto_fontconfig_installer.sh --status --system       # report state of the system config
 ./noto_fontconfig_installer.sh --install --dry-run     # preview actions without changes
 ./noto_fontconfig_installer.sh --install --no-font-install  # skip package installation
+./noto_fontconfig_installer.sh --install --user --flatpak   # expose config to Flatpak apps
 ```
 
-Dependencies: `fc-cache` (optional but recommended). The script checks for key Noto families and, when run as root, will auto-install them using `pacman`, `apt`, `dnf/yum`, `zypper`, or `emerge` if they are missing (pass `--no-font-install` to skip). Installing to `/etc/fonts` requires root; the script refuses to escalate itself so invoke with `sudo` when targeting the system.
+Dependencies: `fc-cache` (optional but recommended). The script checks for key Noto families and, when run as root, will auto-install them using `pacman`, `apt`, `dnf/yum`, `zypper`, or `emerge` if they are missing (pass `--no-font-install` to skip). Installing to `/etc/fonts` requires root; the script refuses to escalate itself so invoke with `sudo` when targeting the system. Use `--flatpak` with a user install to apply a `flatpak override` that mounts the host fontconfig into all Flatpak apps.
 
 ## Contributing / Extending
 

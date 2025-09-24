@@ -22,6 +22,7 @@ Options:
   --no-cache       Skip running fc-cache after changes
   --force          Overwrite conflicting files instead of aborting
   --no-font-install  Skip checking/auto-installing Noto font packages
+  --flatpak        Apply Flatpak override so sandboxed apps see this config (user scope)
   -h, --help       Show this help message
 USAGE
 }
@@ -366,12 +367,41 @@ install_fonts_if_needed() {
   esac
 }
 
+apply_flatpak_override() {
+  local dry_run_flag=$1
+  local target_scope=$2
+
+  if [[ $target_scope != "user" ]]; then
+    log "--flatpak is only supported with --user installs; skipping"
+    return
+  fi
+
+  local override_cmd=(flatpak override --user --filesystem=xdg-config/fontconfig:ro --filesystem=xdg-data/fonts:ro)
+
+  if [[ $dry_run_flag -eq 1 ]]; then
+    log "Dry run: would run ${override_cmd[*]}"
+    return
+  fi
+
+  if ! command -v flatpak >/dev/null 2>&1; then
+    log "flatpak command not found; skipping Flatpak override"
+    return
+  fi
+
+  if "${override_cmd[@]}" >/dev/null 2>&1; then
+    log "Applied Flatpak override to expose host fontconfig and fonts"
+  else
+    log "Warning: failed to apply Flatpak override"
+  fi
+}
+
 mode="install"
 target="system"
 dry_run=0
 refresh=1
 force=0
 skip_font_install=0
+configure_flatpak=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -409,6 +439,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-font-install)
       skip_font_install=1
+      shift
+      ;;
+    --flatpak)
+      configure_flatpak=1
       shift
       ;;
     -h|--help)
@@ -477,7 +511,10 @@ case "$mode" in
     if [[ $refresh -eq 1 ]]; then
       refresh_cache "$dry_run"
     else
-      log "Skipping fc-cache refresh per --no-cache"
+    log "Skipping fc-cache refresh per --no-cache"
+    fi
+    if [[ $configure_flatpak -eq 1 ]]; then
+      apply_flatpak_override "$dry_run" "$target"
     fi
     ;;
   remove)
