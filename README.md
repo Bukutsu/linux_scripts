@@ -61,9 +61,10 @@ sudo ./noto_fontconfig_installer.sh --install          # install system-wide
 ./noto_fontconfig_installer.sh --remove --user         # remove the per-user config
 ./noto_fontconfig_installer.sh --status --system       # report state of the system config
 ./noto_fontconfig_installer.sh --install --dry-run     # preview actions without changes
+./noto_fontconfig_installer.sh --install --no-font-install  # skip package installation
 ```
 
-Dependencies: `fc-cache` (optional but recommended). Installing to `/etc/fonts` requires root; the script refuses to escalate itself so invoke with `sudo` when targeting the system.
+Dependencies: `fc-cache` (optional but recommended). The script checks for key Noto families and, when run as root, will auto-install them using `pacman`, `apt`, `dnf/yum`, `zypper`, or `emerge` if they are missing (pass `--no-font-install` to skip). Installing to `/etc/fonts` requires root; the script refuses to escalate itself so invoke with `sudo` when targeting the system.
 
 ## Contributing / Extending
 

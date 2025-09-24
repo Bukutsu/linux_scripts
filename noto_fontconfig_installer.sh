@@ -21,11 +21,14 @@ Options:
   --dry-run        Print intended actions without modifying anything
   --no-cache       Skip running fc-cache after changes
   --force          Overwrite conflicting files instead of aborting
+  --no-font-install  Skip checking/auto-installing Noto font packages
   -h, --help       Show this help message
 USAGE
 }
 
 CONFIG_NAME="60-noto-prefer-thai.conf"
+
+REQUIRED_FONTS=("Noto Sans" "Noto Sans Thai" "Noto Sans Mono" "Noto Serif" "Noto Serif Thai" "Noto Color Emoji")
 
 config_payload() {
   cat <<'XML'
@@ -255,11 +258,120 @@ refresh_cache() {
   fi
 }
 
+font_installed() {
+  local face="$1"
+  if ! command -v fc-list >/dev/null 2>&1; then
+    if [[ ${FC_LIST_WARNED:-0} -eq 0 ]]; then
+      log "fc-list not found; unable to verify installed fonts"
+      FC_LIST_WARNED=1
+    fi
+    return 1
+  fi
+  local count
+  count=$(fc-list "$face" 2>/dev/null | wc -l | tr -d ' \n')
+  [[ "${count:-0}" -gt 0 ]]
+}
+
+detect_package_manager() {
+  if command -v pacman >/dev/null 2>&1; then
+    printf 'pacman'
+  elif command -v paru >/dev/null 2>&1; then
+    printf 'pacman'
+  elif command -v yay >/dev/null 2>&1; then
+    printf 'pacman'
+  elif command -v apt-get >/dev/null 2>&1; then
+    printf 'apt'
+  elif command -v apt >/dev/null 2>&1; then
+    printf 'apt'
+  elif command -v dnf >/dev/null 2>&1; then
+    printf 'dnf'
+  elif command -v yum >/dev/null 2>&1; then
+    printf 'dnf'
+  elif command -v zypper >/dev/null 2>&1; then
+    printf 'zypper'
+  elif command -v emerge >/dev/null 2>&1; then
+    printf 'emerge'
+  else
+    printf 'unknown'
+  fi
+}
+
+install_fonts_if_needed() {
+  local target_scope="$1"
+  local dry_run_flag=$2
+  local skip_install=$3
+
+  local missing=()
+  for face in "${REQUIRED_FONTS[@]}"; do
+    if ! font_installed "$face"; then
+      missing+=("$face")
+    fi
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  log "Detected missing fonts: ${missing[*]}"
+
+  if [[ $skip_install -eq 1 ]]; then
+    log "Font installation skipped due to --no-font-install"
+    return 0
+  fi
+
+  if [[ $dry_run_flag -eq 1 ]]; then
+    log "Dry run: would attempt to install required fonts"
+    return 0
+  fi
+
+  local mgr
+  mgr=$(detect_package_manager)
+
+  if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+    log "Fonts missing but not running as root; install the packages manually or re-run with sudo."
+    return 0
+  fi
+
+  case "$mgr" in
+    pacman)
+      local pkg_list=("noto-fonts" "noto-fonts-cjk" "noto-fonts-extra")
+      log "Using pacman to install: ${pkg_list[*]}"
+      pacman -S --needed --noconfirm "${pkg_list[@]}"
+      ;;
+    apt)
+      local pkg_list=("fonts-noto-core" "fonts-noto-color-emoji" "fonts-noto-unhinted")
+      log "Using apt to install: ${pkg_list[*]}"
+      apt-get update
+      apt-get install -y "${pkg_list[@]}"
+      ;;
+    dnf)
+      local pkg_list=("google-noto-sans-fonts" "google-noto-serif-fonts" "google-noto-sans-thai-fonts" "google-noto-emoji-color-fonts" "google-noto-mono-fonts")
+      log "Using dnf to install: ${pkg_list[*]}"
+      dnf install -y "${pkg_list[@]}"
+      ;;
+    zypper)
+      local pkg_list=("google-noto-sans-fonts" "google-noto-serif-fonts" "google-noto-sans-thai-fonts" "google-noto-emoji-color-fonts" "google-noto-mono-fonts")
+      log "Using zypper to install: ${pkg_list[*]}"
+      zypper --non-interactive install --auto-agree-with-licenses "${pkg_list[@]}"
+      ;;
+    emerge)
+      local pkg_list=("media-fonts/noto" "media-fonts/noto-emoji")
+      log "Using emerge to install: ${pkg_list[*]}"
+      emerge --ask=n --quiet "${pkg_list[@]}"
+      ;;
+    *)
+      log "Package manager not detected; install the missing fonts manually."
+      return 0
+      ;;
+  esac
+}
+
 mode="install"
 target="system"
 dry_run=0
 refresh=1
 force=0
+skip_font_install=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -293,6 +405,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --force)
       force=1
+      shift
+      ;;
+    --no-font-install)
+      skip_font_install=1
       shift
       ;;
     -h|--help)
@@ -355,6 +471,7 @@ case "$mode" in
     else
       log "Dry run: would ensure directories $avail_dir and $conf_dir"
     fi
+    install_fonts_if_needed "$target" "$dry_run" "$skip_font_install"
     write_config "$avail_path" "$dry_run" "$force"
     ensure_symlink "$link_path" "$avail_path" "$dry_run" "$force"
     if [[ $refresh -eq 1 ]]; then
