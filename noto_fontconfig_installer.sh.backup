@@ -247,20 +247,15 @@ check_command() {
 check_path_safety() {
   local path="$1"
 
-  # Check for empty path
-  if [[ -z "$path" ]]; then
-    log_error "Empty path provided"
+  # Check for null bytes
+  if [[ "$path" == *$'\0'* ]]; then
+    log_error "Path contains null bytes: $path"
     return 1
   fi
 
-  # Check for path traversal attempts (just warn, don't fail)
+  # Check for path traversal attempts
   if [[ "$path" == *".."* ]]; then
     log_warn "Path contains '..': $path"
-  fi
-
-  # Basic validation - path should start with / or a letter
-  if [[ ! "$path" =~ ^[/a-zA-Z~] ]]; then
-    log_warn "Unusual path format: $path"
   fi
 
   return 0
@@ -970,135 +965,3 @@ main() {
         ;;
       *)
         die "$EXIT_GENERAL_ERROR" "Unexpected argument: $1" "Run '$SCRIPT_NAME --help' for usage."
-        ;;
-    esac
-  done
-
-  # Determine directory paths
-  local base_dir=""
-  local avail_dir=""
-  local conf_dir=""
-
-  case "$target" in
-    system)
-      base_dir="/etc/fonts"
-      avail_dir="$base_dir/conf.avail"
-      conf_dir="$base_dir/conf.d"
-      ;;
-    user)
-      base_dir="${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig"
-      avail_dir="$base_dir/conf.avail"
-      conf_dir="$base_dir/conf.d"
-      ;;
-    *)
-      die "$EXIT_GENERAL_ERROR" "Unknown target: $target"
-      ;;
-  esac
-
-  local avail_path="$avail_dir/$CONFIG_NAME"
-  local link_path="$conf_dir/$CONFIG_NAME"
-  local lock_file="/tmp/${SCRIPT_NAME}.${target}.lock"
-
-  # Permission checks (except for status mode)
-  if [[ "$mode" != "status" ]]; then
-    if [[ $target == "system" ]]; then
-      require_root
-    fi
-
-    # Acquire lock to prevent concurrent runs
-    acquire_lock "$lock_file" "$dry_run"
-
-    log "Mode: $mode"
-    log "Target: $target"
-    log "Configuration path: $avail_path"
-
-    if [[ $dry_run -eq 1 ]]; then
-      log "DRY RUN MODE - No changes will be made"
-    fi
-  fi
-
-  # Execute requested operation
-  case "$mode" in
-    install)
-      # Ensure directories exist
-      if [[ $dry_run -eq 0 ]]; then
-        if ! mkdir -p "$avail_dir" "$conf_dir" 2>/dev/null; then
-          die "$EXIT_GENERAL_ERROR" "Failed to create directories: $avail_dir, $conf_dir"
-        fi
-        log_debug "Directories ensured: $avail_dir, $conf_dir"
-      else
-        log "Dry run: would ensure directories $avail_dir and $conf_dir"
-      fi
-
-      # Validate directories are writable
-      validate_directory_writable "$avail_dir" "$dry_run" || \
-        die "$EXIT_PERMISSION_DENIED" "Cannot write to $avail_dir"
-      validate_directory_writable "$conf_dir" "$dry_run" || \
-        die "$EXIT_PERMISSION_DENIED" "Cannot write to $conf_dir"
-
-      # Check and install fonts if needed
-      install_fonts_if_needed "$target" "$dry_run" "$skip_font_install"
-
-      # Write configuration file
-      write_config "$avail_path" "$dry_run" "$force"
-
-      # Create symlink
-      ensure_symlink "$link_path" "$avail_path" "$dry_run" "$force"
-
-      # Refresh font cache
-      if [[ $refresh -eq 1 ]]; then
-        refresh_cache "$dry_run" "$target"
-      else
-        log "Skipping fc-cache refresh (--no-cache specified)"
-      fi
-
-      # Apply Flatpak override if requested
-      if [[ $configure_flatpak -eq 1 ]]; then
-        apply_flatpak_override "$dry_run" "$target"
-      fi
-
-      if [[ $dry_run -eq 0 ]]; then
-        echo
-        log "Installation completed successfully!"
-        log "The Noto fonts are now prioritized for sans-serif, serif, and monospace."
-      else
-        echo
-        log "Dry run completed. No changes were made."
-      fi
-      ;;
-
-    remove)
-      remove_config "$avail_path" "$link_path" "$dry_run"
-
-      if [[ $refresh -eq 1 ]]; then
-        refresh_cache "$dry_run" "$target"
-      else
-        log "Skipping fc-cache refresh (--no-cache specified)"
-      fi
-
-      if [[ $dry_run -eq 0 ]]; then
-        echo
-        log "Removal completed successfully!"
-      else
-        echo
-        log "Dry run completed. No changes were made."
-      fi
-      ;;
-
-    status)
-      report_status "$avail_path" "$link_path" "$target"
-      ;;
-
-    *)
-      die "$EXIT_GENERAL_ERROR" "Unsupported mode: $mode"
-      ;;
-  esac
-
-  exit "$EXIT_SUCCESS"
-}
-
-# ============================================================================
-# ENTRY POINT
-# ============================================================================
-
-main "$@"
