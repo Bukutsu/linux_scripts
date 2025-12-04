@@ -1,0 +1,393 @@
+System information snapshot
+Generated: 2025-11-30T00:55:17+07:00
+Host: bukutsu-pikaos
+User: bukutsu
+Output file: /home/bukutsu/Documents/linux_scripts/system_report_bukutsu-pikaos_20251130_005517.txt
+
+### OS and kernel
+
+file: /etc/os-release
+PRETTY_NAME="PikaOS 4"
+NAME="PikaOS"
+VERSION_ID="4"
+VERSION="4"
+VERSION_CODENAME=nest
+ID=pika
+HOME_URL="https://www.pika-os.com/"
+SUPPORT_URL="https://discord.gg/6HKR2YRvNg"
+BUG_REPORT_URL="https://git.pika-os.com/"
+PRIVACY_POLICY_URL="https://www.pika-os.com/"
+ID_LIKE=debian
+DEBIAN_CODENAME=sid
+LOGO=pika-logo
+
+$ lsb_release -a
+Distributor ID:	Pika
+Description:	PikaOS 4
+Release:	4
+Codename:	nest
+
+$ uname -a
+Linux bukutsu-pikaos 6.17.8-pikaos #101pika2 SMP PREEMPT_DYNAMIC Fri Nov 21 06:07:47 EST 2025 x86_64 GNU/Linux
+
+$ uptime -p
+up 4 hours, 34 minutes
+
+$ who -b
+         system boot  2025-11-29 20:20
+
+### Hardware
+
+$ systemd-detect-virt 
+none
+
+$ lscpu 
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           48 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  12
+On-line CPU(s) list:                     0-11
+Vendor ID:                               AuthenticAMD
+Model name:                              AMD Ryzen 5 5600X 6-Core Processor
+CPU family:                              25
+Model:                                   33
+Thread(s) per core:                      2
+Core(s) per socket:                      6
+Socket(s):                               1
+Stepping:                                2
+Frequency boost:                         enabled
+CPU(s) scaling MHz:                      77%
+CPU max MHz:                             4837.5278
+CPU min MHz:                             582.8350
+BogoMIPS:                                7399.98
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid extd_apicid aperfmperf rapl pni pclmulqdq monitor ssse3 fma cx16 sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm cmp_legacy svm extapic cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw ibs skinit wdt tce topoext perfctr_core perfctr_nb bpext perfctr_llc mwaitx cpb cat_l3 cdp_l3 hw_pstate ssbd mba ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid cqm rdt_a rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local user_shstk clzero irperf xsaveerptr rdpru wbnoinvd arat npt lbrv svm_lock nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold avic v_vmsave_vmload vgif v_spec_ctrl umip pku ospke vaes vpclmulqdq rdpid overflow_recov succor smca fsrm debug_swap
+Virtualization:                          AMD-V
+L1d cache:                               192 KiB (6 instances)
+L1i cache:                               192 KiB (6 instances)
+L2 cache:                                3 MiB (6 instances)
+L3 cache:                                32 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-11
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Mitigation; Safe RET
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Vulnerable: No microcode
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Mitigation; IBPB before exit to userspace
+
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       8.5Gi       1.0Gi       788Mi       7.2Gi       7.1Gi
+Swap:           15Gi       1.3Gi        14Gi
+
+$ swapon --show
+NAME       TYPE       SIZE USED PRIO
+/dev/zram0 partition 15.5G 1.3G  100
+
+$ lsblk -o NAME,TYPE,FSTYPE,SIZE,FSUSED,FSUSE%,MOUNTPOINT
+NAME        TYPE FSTYPE   SIZE FSUSED FSUSE% MOUNTPOINT
+sda         disk        931.5G               
+└─sda1      part ntfs   931.5G   219G    24% /mnt/shared
+sdb         disk        111.8G               
+├─sdb1      part vfat     499M  86.9M    17% /boot/efi
+├─sdb2      part ext4    1000M 103.6M    11% /boot
+└─sdb3      part btrfs  110.3G  59.8G    54% /home
+zram0       disk swap    15.5G               [SWAP]
+nvme0n1     disk        476.9G               
+├─nvme0n1p1 part vfat     100M               
+├─nvme0n1p2 part           16M               
+├─nvme0n1p3 part ntfs   476.2G 315.1G    66% /mnt/windows
+└─nvme0n1p4 part ntfs     642M               
+
+$ df -h -x tmpfs -x devtmpfs
+Filesystem      Size  Used Avail Use% Mounted on
+efivarfs        128K   55K   69K  45% /sys/firmware/efi/efivars
+/dev/sdb3       111G   60G   49G  56% /
+/dev/sdb3       111G   60G   49G  56% /home
+/dev/sdb2       966M  104M  797M  12% /boot
+/dev/nvme0n1p3  477G  316G  162G  67% /mnt/windows
+/dev/sdb1       498M   87M  412M  18% /boot/efi
+/dev/sda1       932G  219G  713G  24% /mnt/shared
+
+$ lspci | grep -iE "vga|3d|display"
+09:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 10 [Radeon RX 5600 OEM/5600 XT / 5700/5700 XT] (rev c1)
+
+### Boot and services
+
+$ systemctl list-units --type=service --state=running --no-pager --no-legend
+  accounts-daemon.service       loaded active running Accounts Service
+  ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++
+  avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack
+  bluetooth.service             loaded active running Bluetooth service
+  brltty.service                loaded active running Braille Device Support
+  colord.service                loaded active running Manage, Install and Generate Color Profiles
+  containerd.service            loaded active running containerd container runtime
+  dbus-broker.service           loaded active running D-Bus System Message Bus
+  docker.service                loaded active running Docker Application Container Engine
+  exim4.service                 loaded active running exim Mail Transport Agent
+  falcond.service               loaded active running Falcon Daemon Service
+  fwupd.service                 loaded active running Firmware update daemon
+  gdm.service                   loaded active running GNOME Display Manager
+  ModemManager.service          loaded active running Modem Manager
+  NetworkManager.service        loaded active running Network Manager
+  nfs-blkmap.service            loaded active running pNFS block layout mapping daemon
+  nmbd.service                  loaded active running Samba NMB Daemon
+  pikd.service                  loaded active running Pik Daemon Service
+  polkit.service                loaded active running Authorization Manager
+  power-profiles-daemon.service loaded active running Power Profiles daemon
+  rpcbind.service               loaded active running RPC bind portmap service
+  rsyslog.service               loaded active running System Logging Service
+  rtkit-daemon.service          loaded active running RealtimeKit Scheduling Policy Service
+  scx_loader.service            loaded active running DBUS on-demand loader of sched-ext schedulers
+  smbd.service                  loaded active running Samba SMB Daemon
+  ssh.service                   loaded active running OpenBSD Secure Shell server
+  supergfxd.service             loaded active running SUPERGFX
+  switcheroo-control.service    loaded active running Switcheroo Control Proxy service
+  systemd-journald.service      loaded active running Journal Service
+  systemd-logind.service        loaded active running User Login Management
+  systemd-timesyncd.service     loaded active running Network Time Synchronization
+  systemd-udevd.service         loaded active running Rule-based Manager for Device Events and Files
+  udisks2.service               loaded active running Disk Manager
+  upower.service                loaded active running Daemon for power management
+  user@1000.service             loaded active running User Manager for UID 1000
+  winbind.service               loaded active running Samba Winbind Daemon
+  wpa_supplicant.service        loaded active running WPA supplicant
+
+$ systemctl get-default
+graphical.target
+
+$ journalctl -b -n 50 --no-pager
+Nov 30 00:53:18 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:18 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:23 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:23 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:28 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:28 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:33 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:33 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:38 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:38 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:43 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:43 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:48 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:48 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:53 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:53 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:58 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:53:58 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:03 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:03 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:08 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:08 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:13 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:13 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:18 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:18 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:23 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:23 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:28 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:28 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:33 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:33 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:38 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:38 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:43 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:43 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:48 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:48 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:53 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:53 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:58 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:54:58 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:03 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:03 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:08 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:08 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:13 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:13 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:18 bukutsu-pikaos brltty[2309]: unsupported generic resource identifier: bluetooth:
+Nov 30 00:55:18 bukutsu-pikaos brltty[2309]: brltty: unsupported generic resource identifier: bluetooth:
+
+### Network
+
+$ ip -brief address
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp5s0           DOWN           
+wlan0            UP             10.40.149.32/23 fe80::af9f:3954:55d:8f5c/64 
+docker0          DOWN           172.17.0.1/16 
+
+$ ip route
+default via 10.40.148.1 dev wlan0 proto dhcp src 10.40.149.32 metric 600 
+10.40.148.0/23 dev wlan0 proto kernel scope link src 10.40.149.32 metric 600 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+
+$ ss -tuln
+Netid State  Recv-Q Send-Q                    Local Address:Port  Peer Address:Port
+udp   UNCONN 0      0                           224.0.0.251:5353       0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:5353       0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:5353       0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:5353       0.0.0.0:*   
+udp   UNCONN 0      0                             127.0.0.1:47220      0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:48221      0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:111        0.0.0.0:*   
+udp   UNCONN 0      0                        172.17.255.255:137        0.0.0.0:*   
+udp   UNCONN 0      0                            172.17.0.1:137        0.0.0.0:*   
+udp   UNCONN 0      0                         10.40.149.255:137        0.0.0.0:*   
+udp   UNCONN 0      0                          10.40.149.32:137        0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:137        0.0.0.0:*   
+udp   UNCONN 0      0                        172.17.255.255:138        0.0.0.0:*   
+udp   UNCONN 0      0                            172.17.0.1:138        0.0.0.0:*   
+udp   UNCONN 0      0                         10.40.149.255:138        0.0.0.0:*   
+udp   UNCONN 0      0                          10.40.149.32:138        0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:138        0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:27036      0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:44165      0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:44473      0.0.0.0:*   
+udp   UNCONN 0      0                               0.0.0.0:44623      0.0.0.0:*   
+udp   UNCONN 0      0                            172.17.0.1:3702       0.0.0.0:*   
+udp   UNCONN 0      0                       239.255.255.250:3702       0.0.0.0:*   
+udp   UNCONN 0      0                          10.40.149.32:3702       0.0.0.0:*   
+udp   UNCONN 0      0                       239.255.255.250:3702       0.0.0.0:*   
+udp   UNCONN 0      0                                  [::]:5353          [::]:*   
+udp   UNCONN 0      0                                     *:5353             *:*   
+udp   UNCONN 0      0                                  [::]:111           [::]:*   
+udp   UNCONN 0      0                                     *:1716             *:*   
+udp   UNCONN 0      0                                     *:35737            *:*   
+udp   UNCONN 0      0      [fe80::af9f:3954:55d:8f5c]%wlan0:3702          [::]:*   
+udp   UNCONN 0      0                       [ff02::c]%wlan0:3702          [::]:*   
+udp   UNCONN 0      0                                  [::]:53012         [::]:*   
+tcp   LISTEN 0      1                             127.0.0.1:4101       0.0.0.0:*   
+tcp   LISTEN 0      1024                            0.0.0.0:36867      0.0.0.0:*   
+tcp   LISTEN 0      128                           127.0.0.1:37171      0.0.0.0:*   
+tcp   LISTEN 0      128                           127.0.0.1:46079      0.0.0.0:*   
+tcp   LISTEN 0      511                           127.0.0.1:6463       0.0.0.0:*   
+tcp   LISTEN 0      128                           127.0.0.1:57343      0.0.0.0:*   
+tcp   LISTEN 0      50                              0.0.0.0:445        0.0.0.0:*   
+tcp   LISTEN 0      20                            127.0.0.1:25         0.0.0.0:*   
+tcp   LISTEN 0      128                             0.0.0.0:22         0.0.0.0:*   
+tcp   LISTEN 0      4096                            0.0.0.0:111        0.0.0.0:*   
+tcp   LISTEN 0      50                              0.0.0.0:139        0.0.0.0:*   
+tcp   LISTEN 0      128                             0.0.0.0:27036      0.0.0.0:*   
+tcp   LISTEN 0      128                           127.0.0.1:27060      0.0.0.0:*   
+tcp   LISTEN 0      4096                          127.0.0.1:44023      0.0.0.0:*   
+tcp   LISTEN 0      1                                 [::1]:4101          [::]:*   
+tcp   LISTEN 0      50                                 [::]:445           [::]:*   
+tcp   LISTEN 0      128                                [::]:22            [::]:*   
+tcp   LISTEN 0      4096                               [::]:111           [::]:*   
+tcp   LISTEN 0      50                                 [::]:139           [::]:*   
+tcp   LISTEN 0      20                                [::1]:25            [::]:*   
+tcp   LISTEN 0      10                                    *:1716             *:*   
+tcp   LISTEN 0      10                                    *:1753             *:*   
+tcp   LISTEN 0      10                                    *:1752             *:*   
+tcp   LISTEN 0      10                                    *:1754             *:*   
+tcp   LISTEN 0      10                                    *:1745             *:*   
+tcp   LISTEN 0      10                                    *:1744             *:*   
+tcp   LISTEN 0      10                                    *:1747             *:*   
+tcp   LISTEN 0      10                                    *:1746             *:*   
+tcp   LISTEN 0      10                                    *:1749             *:*   
+tcp   LISTEN 0      10                                    *:1748             *:*   
+tcp   LISTEN 0      10                                    *:1751             *:*   
+tcp   LISTEN 0      10                                    *:1750             *:*   
+tcp   LISTEN 0      10                                    *:1739             *:*   
+tcp   LISTEN 0      10                                    *:1741             *:*   
+tcp   LISTEN 0      10                                    *:1740             *:*   
+tcp   LISTEN 0      10                                    *:1743             *:*   
+tcp   LISTEN 0      10                                    *:1742             *:*   
+
+file: /etc/resolv.conf
+# Dynamic resolv.conf(5) file for glibc resolver(3) generated by resolvconf(8)
+#     DO NOT EDIT THIS FILE BY HAND -- YOUR CHANGES WILL BE OVERWRITTEN
+nameserver 158.108.0.2
+nameserver 158.108.0.3
+search kps.ku.ac.th
+
+### Processes
+
+$ ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -n 20
+    PID COMMAND         %CPU %MEM
+  23506 Isolated Web Co  0.6  6.6
+  54735 Isolated Web Co  8.7  5.9
+   7642 zen             28.8  5.6
+   7942 Isolated Web Co  5.7  4.8
+   5279 Discord          5.8  3.6
+  53610 Isolated Web Co  0.9  3.0
+   6175 steamwebhelper   1.5  2.8
+   6061 steamwebhelper   0.3  2.7
+  38055 Isolated Web Co  0.6  2.3
+  71463 zed-editor      24.1  2.2
+   4008 gnome-shell     11.6  2.0
+  14088 Isolated Web Co  1.3  1.8
+  67644 Isolated Web Co  1.0  1.5
+  71350 nautilus         0.5  1.5
+   7852 WebExtensions    0.4  1.4
+   6094 steamwebhelper   0.5  1.4
+   5181 Discord          0.6  1.1
+  17901 Isolated Web Co  0.0  1.1
+  32727 Isolated Web Co  0.0  1.1
+
+$ ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 20
+    PID COMMAND         %CPU %MEM
+   7642 zen             28.8  5.6
+  71463 zed-editor      24.1  2.2
+   4008 gnome-shell     11.6  2.0
+  54735 Isolated Web Co  8.7  5.9
+   5279 Discord          5.8  3.6
+   7942 Isolated Web Co  5.7  4.8
+   7779 RDD Process      3.5  0.8
+   6175 steamwebhelper   1.5  2.8
+  14088 Isolated Web Co  1.3  1.8
+  67644 Isolated Web Co  1.0  1.5
+  53610 Isolated Web Co  0.9  3.0
+   5181 Discord          0.6  1.1
+  38055 Isolated Web Co  0.6  2.3
+  23506 Isolated Web Co  0.6  6.6
+   6094 steamwebhelper   0.5  1.4
+   5353 steam            0.5  0.9
+   3863 pipewire-pulse   0.5  0.1
+  71350 nautilus         0.5  1.5
+   7852 WebExtensions    0.4  1.4
+
+### Packages
+
+Installed packages (count):
+2461
+
+### Kernel parameters
+
+file: /proc/cmdline
+nowatchdog nvidia-drm.modeset=1 rootflags=rw,relatime,ssd,discard=async,space_cache=v2,subvol=/@ root=UUID=6c67f480-c03f-48e9-ac16-3e41d372282e quiet splash ---
+
+### Locale
+
+$ locale 
+LANG=en_US.UTF-8
+LANGUAGE=
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=en_GB.UTF-8
+LC_TIME=en_GB.UTF-8
+LC_COLLATE="en_US.UTF-8"
+LC_MONETARY=en_GB.UTF-8
+LC_MESSAGES="en_US.UTF-8"
+LC_PAPER=en_GB.UTF-8
+LC_NAME="en_US.UTF-8"
+LC_ADDRESS=en_GB.UTF-8
+LC_TELEPHONE=en_GB.UTF-8
+LC_MEASUREMENT=en_GB.UTF-8
+LC_IDENTIFICATION="en_US.UTF-8"
+LC_ALL=
+
+Done.
