@@ -329,6 +329,30 @@ require_root() {
   fi
 }
 
+require_user_home() {
+  if [[ -z "${HOME:-}" ]]; then
+    die "$EXIT_GENERAL_ERROR" "HOME is not set; cannot resolve user fontconfig path."
+  fi
+}
+
+ensure_directory() {
+  local dir="$1"
+  local dry_run_flag=$2
+
+  if [[ $dry_run_flag -eq 1 ]]; then
+    log "Dry run: would ensure directory $dir (0755)"
+    return 0
+  fi
+
+  if [[ ! -d "$dir" ]]; then
+    if ! install -d -m 0755 "$dir"; then
+      die "$EXIT_GENERAL_ERROR" "Failed to create directory: $dir"
+    fi
+  fi
+
+  return 0
+}
+
 # ============================================================================
 # BACKUP OPERATIONS
 # ============================================================================
@@ -605,8 +629,8 @@ refresh_cache() {
     cache_opts="$cache_opts --user"
   fi
 
-  if fc-cache $cache_opts 2>&1 | grep -q "failed\|error"; then
-    log_warn "fc-cache reported issues, but continuing"
+  if ! fc-cache $cache_opts 2>&1; then
+    log_warn "fc-cache returned a non-zero exit code; review output above"
   else
     log "Font cache refreshed successfully"
   fi
@@ -1003,6 +1027,8 @@ main() {
   if [[ "$mode" != "status" ]]; then
     if [[ $target == "system" ]]; then
       require_root
+    else
+      require_user_home
     fi
 
     # Acquire lock to prevent concurrent runs
@@ -1021,14 +1047,9 @@ main() {
   case "$mode" in
     install)
       # Ensure directories exist
-      if [[ $dry_run -eq 0 ]]; then
-        if ! mkdir -p "$avail_dir" "$conf_dir" 2>/dev/null; then
-          die "$EXIT_GENERAL_ERROR" "Failed to create directories: $avail_dir, $conf_dir"
-        fi
-        log_debug "Directories ensured: $avail_dir, $conf_dir"
-      else
-        log "Dry run: would ensure directories $avail_dir and $conf_dir"
-      fi
+      ensure_directory "$avail_dir" "$dry_run"
+      ensure_directory "$conf_dir" "$dry_run"
+      log_debug "Directories ensured: $avail_dir, $conf_dir"
 
       # Validate directories are writable
       validate_directory_writable "$avail_dir" "$dry_run" || \
