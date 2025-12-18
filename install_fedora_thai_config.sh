@@ -14,7 +14,6 @@
 #
 
 set -euo pipefail
-export LC_ALL=C
 
 # ============================================================================ 
 # CONSTANTS & CONFIGURATION
@@ -25,6 +24,9 @@ readonly CONFIG_FILENAME="99-fedora-thai-rules.conf"
 readonly USER_CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig"
 readonly USER_CONF_D="${USER_CONF_DIR}/conf.d"
 readonly TARGET_FILE="${USER_CONF_D}/${CONFIG_FILENAME}"
+
+# Temp file for atomic writes (will be defined in main)
+TMP_FILE=""
 
 # ============================================================================ 
 # UTILS & LOGGING
@@ -50,6 +52,13 @@ log_succ()  { printf "${C_GREEN}[OK]${C_RESET}   %s\n" "$*"; }
 log_warn()  { printf "${C_YELLOW}[WARN]${C_RESET} %s\n" "$*" >&2; }
 log_err()   { printf "${C_RED}[ERR]${C_RESET}  %s\n" "$*" >&2; }
 die()       { log_err "$1"; exit "${2:-1}"; }
+
+cleanup() {
+    if [[ -n "${TMP_FILE:-}" && -f "$TMP_FILE" ]]; then
+        rm -f "$TMP_FILE"
+    fi
+}
+trap cleanup EXIT INT TERM
 
 # ============================================================================ 
 # PAYLOAD
@@ -116,26 +125,95 @@ get_fedora_config_payload() {
 EOF
 }
 
+# Core Arch Packages required for Flatpak + KDE integration
+readonly REQUIRED_PACKAGES=(
+  flatpak
+  xdg-desktop-portal
+  xdg-desktop-portal-kde
+  kde-gtk-config
+)
+
 # ============================================================================ 
 # CORE FUNCTIONS
 # ============================================================================ 
 
+check_write_permissions() {
+    # Ensure base config directory exists or can be created
+    if [[ ! -d "$USER_CONF_DIR" ]]; then
+        if [[ $DRY_RUN -eq 1 ]]; then return; fi
+        mkdir -p "$USER_CONF_DIR" || die "Cannot create directory $USER_CONF_DIR"
+    fi
+
+    # Check write access to the directory
+    if [[ ! -w "$USER_CONF_DIR" ]]; then
+        die "No write permission for $USER_CONF_DIR"
+    fi
+}
+
+# Detect the package manager and suggest the install command
+get_install_suggestion() {
+    if command -v dnf >/dev/null 2>&1; then
+        echo "sudo dnf install google-noto-sans-thai-fonts google-noto-serif-thai-fonts"
+    elif command -v apt-get >/dev/null 2>&1; then
+        echo "sudo apt-get install fonts-noto-core"
+    elif command -v pacman >/dev/null 2>&1; then
+        echo "sudo pacman -S noto-fonts"
+    elif command -v zypper >/dev/null 2>&1; then
+        echo "sudo zypper install google-noto-sans-thai-fonts google-noto-serif-thai-fonts"
+    elif command -v apk >/dev/null 2>&1; then
+        echo "sudo apk add font-noto-thai"
+    else
+        echo "Install 'Noto Sans Thai' and 'Noto Serif Thai' via your package manager."
+    fi
+}
+
 # Check if the required fonts are actually present on the system
 check_dependencies() {
+    # 1. Check if running as root (usually a mistake for user-config)
+    if [[ $EUID -eq 0 ]]; then
+        log_warn "You are running this script as ROOT."
+        log_warn "Configuration will be applied to the /root account, not your user account."
+        log_warn "If this is not intended, stop and run as a normal user."
+        sleep 2
+    fi
+
     if ! command -v fc-list >/dev/null 2>&1; then
         log_warn "Command 'fc-list' not found. Cannot verify installed fonts."
         return
     fi
 
-    # Check for Noto Sans Thai (common package: fonts-noto-core or noto-fonts)
-    if ! fc-list : family | grep -qi "Noto Sans Thai"; then
-        log_warn "Font 'Noto Sans Thai' does not appear to be installed."
-        log_warn "This configuration requires Noto Thai fonts to be effective."
-        log_warn "  - Debian/Ubuntu: sudo apt install fonts-noto-core"
-        log_warn "  - Arch Linux:    sudo pacman -S noto-fonts"
-        log_warn "  - Fedora:        (Usually installed by default)"
-    else
-        log_info "Detected 'Noto Sans Thai' installed."
+    local missing_fonts=0
+    
+    # Helper to check a specific font family
+    check_font() {
+        local font_name="$1"
+        # Method 1: Direct lookup (fast, exact)
+        if [[ -n "$(fc-list : family="${font_name}" 2>/dev/null)" ]]; then
+            log_info "Verified '${font_name}' is installed."
+            return 0
+        fi
+        
+        # Method 2: Resolution check (robust against aliases/naming quirks)
+        # If the system resolves request for X to X, then X exists.
+        local resolved
+        resolved=$(fc-match -f "%{family}" "${font_name}" 2>/dev/null || true)
+        if [[ "$resolved" == *"${font_name}"* ]]; then
+            log_info "Verified '${font_name}' is installed (via match)."
+            return 0
+        fi
+        
+        log_warn "Font '${font_name}' is missing."
+        return 1
+    }
+
+    check_font "Noto Sans Thai" || missing_fonts=1
+    check_font "Noto Serif Thai" || missing_fonts=1
+
+    if [[ $missing_fonts -eq 1 ]]; then
+        local suggest_cmd
+        suggest_cmd=$(get_install_suggestion)
+        log_warn "Required fonts are missing. Configuration will apply but may not be visible."
+        log_warn "Recommended fix: $suggest_cmd"
     fi
 }
 
@@ -143,13 +221,19 @@ check_dependencies() {
 ensure_main_conf() {
     local main_conf="${USER_CONF_DIR}/fonts.conf"
     
-    if [[ -f "$main_conf" ]]; then
+    # Check if file exists and is not empty (size > 0)
+    if [[ -s "$main_conf" ]]; then
         # Check if it includes the conf.d directory
         if ! grep -q "conf.d" "$main_conf"; then
             log_warn "$main_conf exists but might not include the 'conf.d' directory."
             log_warn "If your fonts don't change, ensure <include>conf.d</include> is in $main_conf."
         fi
         return
+    fi
+
+    # If file exists but is empty, warn and overwrite
+    if [[ -f "$main_conf" && ! -s "$main_conf" ]]; then
+         log_warn "Found empty fonts.conf. Re-creating standard configuration..."
     fi
 
     if [[ $DRY_RUN -eq 1 ]]; then
@@ -169,11 +253,13 @@ EOF
     log_succ "Created $main_conf"
 }
 
-# Install or update the configuration file
+# Install or update the configuration file (Atomic Write)
 install_config() {
     local payload
     payload=$(get_fedora_config_payload)
     local changed=0
+
+    check_write_permissions
 
     # 1. Ensure Directory
     if [[ ! -d "$USER_CONF_D" ]]; then
@@ -199,13 +285,22 @@ install_config() {
         fi
     fi
 
-    # 3. Write file
+    # 3. Atomic Write
     if [[ $DRY_RUN -eq 1 ]]; then
         log_info "[DRY-RUN] Would write configuration to $TARGET_FILE"
         return 1 # Simulate change for flow
     fi
 
-    echo "$payload" > "$TARGET_FILE"
+    # Create safe temp file
+    TMP_FILE=$(mktemp)
+    echo "$payload" > "$TMP_FILE"
+
+    # Move temp file to target (Atomic operation)
+    mv "$TMP_FILE" "$TARGET_FILE"
+    
+    # Clear TMP_FILE variable so trap doesn't try to delete non-existent file
+    TMP_FILE=""
+    
     log_succ "Wrote configuration to $TARGET_FILE"
     return 1 # Indicates change happened
 }
@@ -229,16 +324,24 @@ uninstall_config() {
 
 # Refresh font cache
 refresh_cache() {
-    if ! command -v fc-cache >/dev/null 2>&1; then
-        log_warn "fc-cache not found. Please restart applications manually."
-        return
+    local fc_cmd="fc-cache"
+    
+    # Try to find fc-cache if not in PATH
+    if ! command -v "$fc_cmd" >/dev/null 2>&1; then
+        if [[ -x /usr/bin/fc-cache ]]; then fc_cmd="/usr/bin/fc-cache";
+        elif [[ -x /usr/sbin/fc-cache ]]; then fc_cmd="/usr/sbin/fc-cache";
+        else
+            log_warn "fc-cache not found in PATH or standard locations."
+            log_warn "Please restart applications manually to apply changes."
+            return
+        fi
     fi
 
     if [[ $DRY_RUN -eq 1 ]]; then
-        log_info "[DRY-RUN] Would run: fc-cache -f --user"
+        log_info "[DRY-RUN] Would run: $fc_cmd -f"
     else
         log_info "Refreshing font cache..."
-        fc-cache -f --user || log_warn "fc-cache reported an error (code $?)"
+        "$fc_cmd" -f || log_warn "$fc_cmd reported an error (code $?)"
         log_succ "Font cache refreshed."
     fi
 }

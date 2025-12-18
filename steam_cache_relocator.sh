@@ -2,19 +2,43 @@
 set -euo pipefail
 
 # Enhanced Steam Cache Relocator with improved robustness
-# Version: 2.0
+# Version: 2.1
 
 readonly SCRIPT_NAME=$(basename "$0")
 readonly LOCK_FILE_NAME=".steam_cache_relocator.lock"
 
 log_level="${LOG_LEVEL:-INFO}"
 
+# Colors for better readability if stderr is a terminal
+if [[ -t 2 ]]; then
+    readonly C_RED='\033[0;31m'
+    readonly C_GREEN='\033[0;32m'
+    readonly C_YELLOW='\033[0;33m'
+    readonly C_BLUE='\033[0;34m'
+    readonly C_RESET='\033[0m'
+else
+    readonly C_RED=''
+    readonly C_GREEN=''
+    readonly C_YELLOW=''
+    readonly C_BLUE=''
+    readonly C_RESET=''
+fi
+
 log() {
   local level="${1:-INFO}"
   shift
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-  printf '[%s] [%s] %s\n' "$timestamp" "$level" "$*" >&2
+  local color="$C_RESET"
+  
+  case "$level" in
+    INFO)  color="$C_BLUE" ;;
+    WARN)  color="$C_YELLOW" ;;
+    ERROR) color="$C_RED" ;;
+    DEBUG) color="$C_RESET" ;;
+  esac
+
+  printf '[%s] [%b%s%b] %s\n' "$timestamp" "$color" "$level" "$C_RESET" "$*" >&2
 }
 
 log_info() {
