@@ -69,11 +69,8 @@ get_fedora_config_payload() {
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <fontconfig>
-  <!-- Fedora Logic: Prepend Noto Sans Thai for Sans-Serif when language is Thai -->
+  <!-- Fedora Logic: Prepend Noto Sans Thai for Sans-Serif globally (fix for non-tagged apps) -->
   <match>
-    <test name="lang" compare="contains">
-      <string>th</string>
-    </test>
     <test name="family">
       <string>sans-serif</string>
     </test>
@@ -82,11 +79,8 @@ get_fedora_config_payload() {
     </edit>
   </match>
 
-  <!-- Fedora Logic: Prepend Noto Serif Thai for Serif when language is Thai -->
+  <!-- Fedora Logic: Prepend Noto Serif Thai for Serif globally -->
   <match>
-    <test name="lang" compare="contains">
-      <string>th</string>
-    </test>
     <test name="family">
       <string>serif</string>
     </test>
@@ -374,6 +368,7 @@ Usage: $SCRIPT_NAME [OPTIONS]
 
 Options:
   --uninstall, --revert   Remove the configuration and revert changes.
+  --force-reset           Back up existing conf.d and start fresh (fixes conflicts).
   --dry-run               Show what would be done without making changes.
   --no-flatpak            Skip Flatpak configuration steps.
   -h, --help              Show this help message.
@@ -384,12 +379,14 @@ USAGE
 main() {
     local DRY_RUN=0
     local SKIP_FLATPAK=0
+    local FORCE_RESET=0
     local MODE="install"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --dry-run)    DRY_RUN=1 ;;
-            --no-flatpak) SKIP_FLATPAK=1 ;;
+            --dry-run)     DRY_RUN=1 ;;
+            --no-flatpak)  SKIP_FLATPAK=1 ;;
+            --force-reset) FORCE_RESET=1 ;;
             --uninstall|--revert) MODE="uninstall" ;; 
             -h|--help)    usage; exit 0 ;; 
             *)            die "Unknown argument: $1" ;; 
@@ -401,6 +398,19 @@ main() {
         log_info "Starting Fedora Thai Font Configuration Installer..."
         
         check_dependencies
+
+        if [[ $FORCE_RESET -eq 1 ]]; then
+            if [[ -d "$USER_CONF_D" ]]; then
+                if [[ $DRY_RUN -eq 1 ]]; then
+                    log_info "[DRY-RUN] Would backup and remove $USER_CONF_D"
+                else
+                    local backup_dir="${USER_CONF_DIR}/conf.d.bak.$(date +%s)"
+                    mv "$USER_CONF_D" "$backup_dir"
+                    log_warn "Existing configuration backed up to $backup_dir"
+                    mkdir -p "$USER_CONF_D"
+                fi
+            fi
+        fi
         
         # install_config returns 1 if changes were made
         local changed=0
