@@ -27,6 +27,8 @@ readonly TARGET_FILE="${USER_CONF_D}/${CONFIG_FILENAME}"
 
 # Temp file for atomic writes (will be defined in main)
 TMP_FILE=""
+readonly CMD_TIMEOUT=15
+SKIP_FONT_CHECK=0
 
 # ============================================================================ 
 # UTILS & LOGGING
@@ -53,9 +55,35 @@ log_warn()  { printf "${C_YELLOW}[WARN]${C_RESET} %s\n" "$*" >&2; }
 log_err()   { printf "${C_RED}[ERR]${C_RESET}  %s\n" "$*" >&2; }
 die()       { log_err "$1"; exit "${2:-1}"; }
 
+# Run a command with a timeout
+run_with_timeout() {
+    local timeout_secs="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$timeout_secs" "$@"
+    else
+        # Fallback for systems without 'timeout' command
+        "$@" &
+        local pid=$!
+        ( sleep "$timeout_secs"; kill "$pid" 2>/dev/null ) &
+        local watcher=$!
+        if wait "$pid" 2>/dev/null; then
+            kill "$watcher" 2>/dev/null
+            wait "$watcher" 2>/dev/null
+            return 0
+        else
+            return 124
+        fi
+    fi
+}
+
 cleanup() {
+    local exit_code=$?
     if [[ -n "${TMP_FILE:-}" && -f "$TMP_FILE" ]]; then
         rm -f "$TMP_FILE"
+    fi
+    if [[ $exit_code -ne 0 && $exit_code -ne 130 ]]; then
+        log_err "Script failed with exit code $exit_code"
     fi
 }
 trap cleanup EXIT INT TERM
@@ -65,67 +93,102 @@ trap cleanup EXIT INT TERM
 # ============================================================================ 
 
 get_fedora_config_payload() {
+  # Enhanced Thai Configuration:
+  # 1. Maps all UI aliases (system-ui, etc.) to Noto Sans Thai.
+  # 2. Uses binding="strong" to override sub-optimal system fallbacks.
+  # 3. De-prioritizes older Thai fonts (Loma, Waree, etc.) by prepending Noto.
   cat <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <fontconfig>
-  <!-- Fedora Logic: Prepend Noto Sans Thai for Sans-Serif globally (fix for non-tagged apps) -->
-  <match>
+  <!-- 1. Match Generic and UI Families -->
+  <match target="pattern">
+    <test name="lang" compare="contains">
+      <string>th</string>
+    </test>
     <test name="family">
       <string>sans-serif</string>
     </test>
-    <edit name="family" mode="prepend">
+    <edit name="family" mode="prepend" binding="strong">
       <string>Noto Sans Thai</string>
     </edit>
   </match>
 
-  <!-- Fedora Logic: Prepend Noto Serif Thai for Serif globally -->
-  <match>
-    <test name="family">
-      <string>serif</string>
+  <match target="pattern">
+    <test name="lang" compare="contains">
+      <string>th</string>
     </test>
-    <edit name="family" mode="prepend">
-      <string>Noto Serif Thai</string>
+    <test name="family" qual="any">
+      <string>system-ui</string>
+      <string>ui-sans-serif</string>
+      <string>ui-serif</string>
+      <string>ui-monospace</string>
+      <string>-apple-system</string>
+      <string>BlinkMacSystemFont</string>
+    </test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Sans Thai</string>
     </edit>
   </match>
 
-  <!-- Fedora Logic: Monospace fallback -->
-  <match>
+  <!-- 2. Monospace Fallback -->
+  <match target="pattern">
     <test name="lang" compare="contains">
       <string>th</string>
     </test>
     <test name="family">
       <string>monospace</string>
     </test>
-    <edit name="family" mode="prepend">
+    <edit name="family" mode="prepend" binding="strong">
       <string>Noto Sans Thai</string>
     </edit>
   </match>
 
-  <!-- Aliases for fallback -->
+  <!-- 3. Serif Matching -->
+  <match target="pattern">
+    <test name="lang" compare="contains">
+      <string>th</string>
+    </test>
+    <test name="family">
+      <string>serif</string>
+    </test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Serif Thai</string>
+    </edit>
+  </match>
+
+  <!-- 4. De-prioritize older/inconsistent Thai fonts -->
+  <match target="pattern">
+    <test name="family" qual="any">
+      <string>Loma</string>
+      <string>Waree</string>
+      <string>Garuda</string>
+      <string>Umpush</string>
+      <string>TlwgTypo</string>
+      <string>TlwgMono</string>
+      <string>TlwgTypewriter</string>
+      <string>Kinnari</string>
+      <string>Norasi</string>
+      <string>Purisa</string>
+      <string>Sawadee</string>
+    </test>
+    <edit name="family" mode="prepend" binding="strong">
+      <string>Noto Sans Thai</string>
+    </edit>
+  </match>
+
+  <!-- Aliases for consistency -->
   <alias>
     <family>Noto Sans Thai</family>
-    <default>
-      <family>sans-serif</family>
-    </default>
+    <default><family>sans-serif</family></default>
   </alias>
   <alias>
     <family>Noto Serif Thai</family>
-    <default>
-      <family>serif</family>
-    </default>
+    <default><family>serif</family></default>
   </alias>
 </fontconfig>
 EOF
 }
-
-# Core Arch Packages required for Flatpak + KDE integration
-readonly REQUIRED_PACKAGES=(
-  flatpak
-  xdg-desktop-portal
-  xdg-desktop-portal-kde
-  kde-gtk-config
-)
 
 # ============================================================================ 
 # CORE FUNCTIONS
@@ -171,6 +234,11 @@ check_dependencies() {
         sleep 2
     fi
 
+    if [[ $SKIP_FONT_CHECK -eq 1 ]]; then
+        log_info "Skipping font verification as requested."
+        return
+    fi
+
     if ! command -v fc-list >/dev/null 2>&1; then
         log_warn "Command 'fc-list' not found. Cannot verify installed fonts."
         return
@@ -182,21 +250,20 @@ check_dependencies() {
     check_font() {
         local font_name="$1"
         # Method 1: Direct lookup (fast, exact)
-        if [[ -n "$(fc-list : family="${font_name}" 2>/dev/null)" ]]; then
+        if run_with_timeout "$CMD_TIMEOUT" fc-list : family="${font_name}" 2>/dev/null | grep -q .; then
             log_info "Verified '${font_name}' is installed."
             return 0
         fi
         
         # Method 2: Resolution check (robust against aliases/naming quirks)
-        # If the system resolves request for X to X, then X exists.
         local resolved
-        resolved=$(fc-match -f "%{family}" "${font_name}" 2>/dev/null || true)
+        resolved=$(run_with_timeout "$CMD_TIMEOUT" fc-match -f "%{family}" "${font_name}" 2>/dev/null || true)
         if [[ "$resolved" == *"${font_name}"* ]]; then
             log_info "Verified '${font_name}' is installed (via match)."
             return 0
         fi
         
-        log_warn "Font '${font_name}' is missing."
+        log_warn "Font '${font_name}' is missing or command timed out."
         return 1
     }
 
@@ -214,10 +281,12 @@ check_dependencies() {
 # Ensure the main fonts.conf exists and includes conf.d
 ensure_main_conf() {
     local main_conf="${USER_CONF_DIR}/fonts.conf"
-    
-    # Check if file exists and is not empty (size > 0)
+
+    # Modern fontconfig (2.13+) automatically reads ~/.config/fontconfig/conf.d/
+    # A user-level fonts.conf is NOT required on Fedora 30+ / fontconfig 2.13+.
+    # We only create one if it already exists but is broken/empty.
     if [[ -s "$main_conf" ]]; then
-        # Check if it includes the conf.d directory
+        # File exists and has content — check it references conf.d
         if ! grep -q "conf.d" "$main_conf"; then
             log_warn "$main_conf exists but might not include the 'conf.d' directory."
             log_warn "If your fonts don't change, ensure <include>conf.d</include> is in $main_conf."
@@ -227,24 +296,26 @@ ensure_main_conf() {
 
     # If file exists but is empty, warn and overwrite
     if [[ -f "$main_conf" && ! -s "$main_conf" ]]; then
-         log_warn "Found empty fonts.conf. Re-creating standard configuration..."
-    fi
+        log_warn "Found empty fonts.conf. Re-creating standard configuration..."
+        if [[ $DRY_RUN -eq 1 ]]; then
+            log_info "[DRY-RUN] Would re-create basic fonts.conf at $main_conf"
+            return
+        fi
 
-    if [[ $DRY_RUN -eq 1 ]]; then
-        log_info "[DRY-RUN] Would create basic fonts.conf at $main_conf"
-        return
-    fi
-
-    log_info "Creating basic fonts.conf..."
-    mkdir -p "$USER_CONF_DIR"
-    cat > "$main_conf" <<EOF
+        mkdir -p "$USER_CONF_DIR"
+        cat > "$main_conf" <<EOF
 <?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
 <fontconfig>
   <include ignore_missing="yes">conf.d</include>
 </fontconfig>
 EOF
-    log_succ "Created $main_conf"
+        log_succ "Re-created $main_conf"
+        return
+    fi
+
+    # No fonts.conf at all — not needed on modern fontconfig, just inform
+    log_info "No user fonts.conf (not required on modern fontconfig)."
 }
 
 # Install or update the configuration file (Atomic Write)
@@ -340,22 +411,67 @@ refresh_cache() {
     fi
 }
 
-# Configure Flatpak overrides
+# Configure Flatpak overrides and fix font caches inside sandboxes
 configure_flatpak() {
     if [[ $SKIP_FLATPAK -eq 1 ]]; then return; fi
     if ! command -v flatpak >/dev/null 2>&1; then return; fi
 
     if [[ $DRY_RUN -eq 1 ]]; then
-        log_info "[DRY-RUN] Would run: flatpak override --user --filesystem=xdg-config/fontconfig:ro"
+        log_info "[DRY-RUN] Would configure Flatpak font access and clear sandbox caches"
         return
     fi
 
-    log_info "Configuring Flatpak access to user fonts..."
+    log_info "Configuring Flatpak font access..."
+
+    # 1. Grant all user Flatpak apps read-only access to user fontconfig rules
     if flatpak override --user --filesystem=xdg-config/fontconfig:ro 2>/dev/null; then
-        log_succ "Flatpak override applied."
+        log_succ "Flatpak fontconfig override applied (xdg-config/fontconfig:ro)."
     else
-        log_warn "Failed to apply Flatpak override (is Flatpak setup correctly?)"
+        log_warn "Failed to apply Flatpak fontconfig override."
     fi
+
+    # 2. Also expose ~/.local/share/fonts if it exists (user-installed fonts)
+    if [[ -d "${HOME}/.local/share/fonts" ]]; then
+        if flatpak override --user --filesystem=xdg-data/fonts:ro 2>/dev/null; then
+            log_succ "Flatpak user fonts override applied (xdg-data/fonts:ro)."
+        fi
+    fi
+
+    # 3. Clear stale per-app fontconfig caches — this is the #1 reason Flatpak
+    #    apps ignore new fontconfig rules even after overrides are applied.
+    #    Each sandbox has its own cache at ~/.var/app/<ID>/cache/fontconfig/
+    local cleared=0
+    if [[ -d "${HOME}/.var/app" ]]; then
+        while IFS= read -r -d '' cache_dir; do
+            rm -rf "$cache_dir"
+            (( cleared++ )) || true
+        done < <(find "${HOME}/.var/app" -maxdepth 3 -type d -name "fontconfig" -path "*/cache/fontconfig" -print0 2>/dev/null)
+    fi
+    if [[ $cleared -gt 0 ]]; then
+        log_succ "Cleared $cleared stale Flatpak fontconfig cache(s)."
+    else
+        log_info "No Flatpak fontconfig caches found to clear."
+    fi
+
+    # 4. Rebuild fc-cache inside each installed Flatpak sandbox that has fc-cache.
+    #    This ensures the sandbox picks up the newly exposed host fonts.
+    log_info "Rebuilding fontconfig cache inside Flatpak sandboxes (this may take a moment)..."
+    local rebuilt=0
+    while IFS= read -r app_id; do
+        [[ -z "$app_id" ]] && continue
+        # Only attempt if the app is actually installed (not a runtime)
+        if run_with_timeout 30 flatpak run --command=fc-cache "$app_id" -- -f 2>/dev/null; then
+            (( rebuilt++ )) || true
+        fi
+    done < <(run_with_timeout "$CMD_TIMEOUT" flatpak list --app --columns=application 2>/dev/null)
+
+    if [[ $rebuilt -gt 0 ]]; then
+        log_succ "Rebuilt fc-cache in $rebuilt Flatpak app(s)."
+    else
+        log_info "No Flatpak apps needed fc-cache rebuild (or commands timed out)."
+    fi
+
+    log_warn "Restart any open Flatpak apps for font changes to take effect."
 }
 
 # ============================================================================ 
@@ -371,6 +487,7 @@ Options:
   --force-reset           Back up existing conf.d and start fresh (fixes conflicts).
   --dry-run               Show what would be done without making changes.
   --no-flatpak            Skip Flatpak configuration steps.
+  --skip-font-check       Don't wait for fc-list to verify fonts.
   -h, --help              Show this help message.
 
 USAGE
@@ -384,12 +501,13 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --dry-run)     DRY_RUN=1 ;;
-            --no-flatpak)  SKIP_FLATPAK=1 ;;
-            --force-reset) FORCE_RESET=1 ;;
+            --dry-run)         DRY_RUN=1 ;;
+            --no-flatpak)      SKIP_FLATPAK=1 ;;
+            --force-reset)     FORCE_RESET=1 ;;
+            --skip-font-check) SKIP_FONT_CHECK=1 ;;
             --uninstall|--revert) MODE="uninstall" ;; 
-            -h|--help)    usage; exit 0 ;; 
-            *)            die "Unknown argument: $1" ;; 
+            -h|--help)         usage; exit 0 ;; 
+            *)                 die "Unknown argument: $1" ;; 
         esac
         shift
     done
